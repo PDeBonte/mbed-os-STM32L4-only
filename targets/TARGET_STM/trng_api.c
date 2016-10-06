@@ -1,5 +1,5 @@
 /*
- *  Hardware entropy collector for the STM32L4 family
+ *  Hardware entropy collector for the STM32 families
  *
  *  Copyright (C) 2006-2016, ARM Limited, All Rights Reserved
  *  SPDX-License-Identifier: Apache-2.0
@@ -36,12 +36,14 @@ static void trng_get_byte(trng_t *obj, unsigned char *byte )
 
 void trng_init(trng_t *obj)
 {
+#if defined(TARGET_STM32L4)
     RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
 
     /*Select PLLQ output as RNG clock source */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RNG;
     PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_PLL;
     HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
+#endif
 
     /* RNG Peripheral clock enable */
     __HAL_RCC_RNG_CLK_ENABLE();
@@ -49,6 +51,9 @@ void trng_init(trng_t *obj)
     /* Initialize RNG instance */
     obj->handle.Instance = RNG;
     HAL_RNG_Init(&obj->handle);
+
+    /* first random number generated after setting the RNGEN bit should not be used */
+    HAL_RNG_GetRandomNumber(&obj->handle);
 
 }
 
@@ -79,6 +84,5 @@ int trng_get_bytes(trng_t *obj, uint8_t *output, size_t length, size_t *output_l
 
     return( ret );
 }
-
 
 #endif

@@ -1,6 +1,6 @@
 /* mbed Microcontroller Library
  *******************************************************************************
- * Copyright (c) 2015, STMicroelectronics
+ * Copyright (c) 2016, STMicroelectronics
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,9 @@
 
 #include "cmsis.h"
 
-void sleep(void) {
+
+void sleep(void)
+{
     // Stop HAL systick
     HAL_SuspendTick();
     // Request to enter SLEEP mode
@@ -48,24 +50,18 @@ void deepsleep(void)
     // Stop HAL systick
     HAL_SuspendTick();
 
-    // Request to enter STOP mode 1 with regulator in low power mode
-    if (__HAL_RCC_PWR_IS_CLK_ENABLED()) {
-        HAL_PWREx_EnableLowPowerRunMode();
-        HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-        HAL_PWREx_DisableLowPowerRunMode();
-    } else {
-        __HAL_RCC_PWR_CLK_ENABLE();
-        HAL_PWREx_EnableLowPowerRunMode();
-        HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-        HAL_PWREx_DisableLowPowerRunMode();
-        __HAL_RCC_PWR_CLK_DISABLE();
-    }
-
-    // After wake-up from STOP reconfigure the PLL
-    SetSysClock();
+    // Request to enter STOP mode with regulator in low power mode
+#if TARGET_STM32L4
+    HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
+#else /* TARGET_STM32L4 */
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+#endif /* TARGET_STM32L4 */
 
     // Restart HAL systick
     HAL_ResumeTick();
+
+    // After wake-up from STOP reconfigure the PLL
+    SetSysClock();
 
 #if DEVICE_LOWPOWERTIMER
     rtc_synchronize();

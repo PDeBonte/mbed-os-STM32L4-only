@@ -42,23 +42,23 @@ void lp_ticker_init(void)
 {
     if (lp_ticker_inited) return;
     lp_ticker_inited = 1;
-    
+
     rtc_init();
     rtc_set_irq_handler((uint32_t) lp_ticker_irq_handler);
 }
 
 uint32_t lp_ticker_read(void)
 {
-    uint32_t usecs;
-    time_t time;
+    uint32_t usecs = 0;
+    time_t time = 0;
 
     lp_ticker_init();
-    
+
     do {
-      time = rtc_read();
-      usecs = rtc_read_subseconds();
+        time = rtc_read();
+        usecs = rtc_read_subseconds();
     } while (time != rtc_read());
-    
+
     return (time * 1000000) + usecs;
 }
 
@@ -77,7 +77,7 @@ void lp_ticker_disable_interrupt(void)
 
 void lp_ticker_clear_interrupt(void)
 {
-    
+
 }
 
 #endif

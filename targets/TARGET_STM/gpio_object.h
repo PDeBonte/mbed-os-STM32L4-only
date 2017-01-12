@@ -1,6 +1,6 @@
 /* mbed Microcontroller Library
  *******************************************************************************
- * Copyright (c) 2015, STMicroelectronics
+ * Copyright (c) 2016, STMicroelectronics
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,11 @@
 extern "C" {
 #endif
 
+/*
+ * Note: reg_clr might actually be same as reg_set.
+ * Depends on family whether BRR is available on top of BSRR
+ * if BRR does not exist, family shall define GPIO_DOES_NOT_HAVE_BRR
+ */
 typedef struct {
     PinName  pin;
     uint32_t mask;
@@ -54,7 +59,11 @@ static inline void gpio_write(gpio_t *obj, int value)
     if (value) {
         *obj->reg_set = obj->mask;
     } else {
+#ifdef GPIO_IP_WITHOUT_BRR
+        *obj->reg_clr = obj->mask << 16;
+#else
         *obj->reg_clr = obj->mask;
+#endif
     }
 }
 

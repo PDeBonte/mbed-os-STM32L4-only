@@ -27,47 +27,53 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************
  */
-
-#ifndef MBED_PERIPHERALPINS_H
-#define MBED_PERIPHERALPINS_H
-
+#include "mbed_assert.h"
+#include "gpio_api.h"
 #include "pinmap.h"
-#include "PeripheralNames.h"
+#include "mbed_error.h"
 
-//*** ADC ***
+extern uint32_t Set_GPIO_Clock(uint32_t port_idx);
 
-extern const PinMap PinMap_ADC[];
+uint32_t gpio_set(PinName pin) {
+    MBED_ASSERT(pin != (PinName)NC);
 
-//*** DAC ***
+    pin_function(pin, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, 0));
 
-extern const PinMap PinMap_DAC[];
+    return (uint32_t)(1 << ((uint32_t)pin & 0xF)); // Return the pin mask
+}
 
-//*** I2C ***
+void gpio_init(gpio_t *obj, PinName pin) {
+    obj->pin = pin;
+    if (pin == (PinName)NC) {
+        return;
+    }
 
-extern const PinMap PinMap_I2C_SDA[];
-extern const PinMap PinMap_I2C_SCL[];
+    uint32_t port_index = STM_PORT(pin);
 
-//*** PWM ***
+    // Enable GPIO clock
+    uint32_t gpio_add = Set_GPIO_Clock(port_index);
+    GPIO_TypeDef *gpio = (GPIO_TypeDef *)gpio_add;
 
-extern const PinMap PinMap_PWM[];
-
-//*** SERIAL ***
-
-extern const PinMap PinMap_UART_TX[];
-extern const PinMap PinMap_UART_RX[];
-extern const PinMap PinMap_UART_RTS[];
-extern const PinMap PinMap_UART_CTS[];
-
-//*** SPI ***
-
-extern const PinMap PinMap_SPI_MOSI[];
-extern const PinMap PinMap_SPI_MISO[];
-extern const PinMap PinMap_SPI_SCLK[];
-extern const PinMap PinMap_SPI_SSEL[];
-
-//*** CAN ***
-
-extern const PinMap PinMap_CAN_RD[];
-extern const PinMap PinMap_CAN_TD[];
-
+    // Fill GPIO object structure for future use
+    obj->mask    = gpio_set(pin);
+    obj->reg_in  = &gpio->IDR;
+    obj->reg_set = &gpio->BSRR;
+#ifdef GPIO_IP_WITHOUT_BRR
+    obj->reg_clr = &gpio->BSRR;
+#else
+    obj->reg_clr = &gpio->BRR;
 #endif
+}
+
+void gpio_mode(gpio_t *obj, PinMode mode) {
+    pin_mode(obj->pin, mode);
+}
+
+void gpio_dir(gpio_t *obj, PinDirection direction) {
+    MBED_ASSERT(obj->pin != (PinName)NC);
+    if (direction == PIN_OUTPUT) {
+        pin_function(obj->pin, STM_PIN_DATA(STM_MODE_OUTPUT_PP, GPIO_NOPULL, 0));
+    } else { // PIN_INPUT
+        pin_function(obj->pin, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, 0));
+    }
+}

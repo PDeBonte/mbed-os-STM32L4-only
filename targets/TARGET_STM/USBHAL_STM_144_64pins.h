@@ -15,11 +15,12 @@
 * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-#ifndef USBHAL_STM32F303ZE_H
-#define USBHAL_STM32F303ZE_H
-#define USBHAL_IRQn  USB_LP_CAN_RX0_IRQn
+#ifndef USBHAL_STM32_144_64
+#define USBHAL_STM32_144_64
+
+#define USBHAL_IRQn  OTG_FS_IRQn
 /*  must be multiple of 4 bytes */
-#define NB_ENDPOINT 8
+#define NB_ENDPOINT 4
 #define MAXTRANSFER_SIZE  0x200
 #define FIFO_USB_RAM_SIZE (MAXTRANSFER_SIZE+MAX_PACKET_SIZE_EP0+MAX_PACKET_SIZE_EP1+MAX_PACKET_SIZE_EP2+MAX_PACKET_SIZE_EP3)
 #if (FIFO_USB_RAM_SIZE > 0x500)
@@ -28,59 +29,57 @@
 
 typedef struct
 {
-	USBHAL *inst;
-	void (USBHAL::*bus_reset)(void);
-	void (USBHAL::*sof)(int frame);
-	void (USBHAL::*connect_change)(unsigned int  connected);
-	void (USBHAL::*suspend_change)(unsigned int suspended);
-	void (USBHAL::*ep0_setup)(void);
-	void (USBHAL::*ep0_in)(void);
-	void (USBHAL::*ep0_out)(void);
-	void (USBHAL::*ep0_read)(void);
-	bool (USBHAL::*ep_realise)(uint8_t endpoint, uint32_t maxPacket, uint32_t flags);
-	bool (USBHAL::*epCallback[6])(void);
-	uint8_t epComplete[2*NB_ENDPOINT];
-	/*  memorize dummy buffer used for reception */
-	uint32_t pBufRx[MAXTRANSFER_SIZE>>2];
-	uint32_t pBufRx0[MAX_PACKET_SIZE_EP0>>2];
-    gpio_t usb_switch;
+    USBHAL *inst;
+    void (USBHAL::*bus_reset)(void);
+    void (USBHAL::*sof)(int frame);
+    void (USBHAL::*connect_change)(unsigned int  connected);
+    void (USBHAL::*suspend_change)(unsigned int suspended);
+    void (USBHAL::*ep0_setup)(void);
+    void (USBHAL::*ep0_in)(void);
+    void (USBHAL::*ep0_out)(void);
+    void (USBHAL::*ep0_read)(void);
+    bool (USBHAL::*ep_realise)(uint8_t endpoint, uint32_t maxPacket, uint32_t flags);
+    bool (USBHAL::*epCallback[2*NB_ENDPOINT-2])(void);
+    /*  memorize dummy buffer used for reception */
+    uint32_t pBufRx[MAXTRANSFER_SIZE>>2];
+    uint32_t pBufRx0[MAX_PACKET_SIZE_EP0>>2];
+    uint8_t epComplete[2*NB_ENDPOINT];
 }USBHAL_Private_t;
 
 uint32_t HAL_PCDEx_GetTxFiFo(PCD_HandleTypeDef *hpcd, uint8_t fifo)
 {
-        return 1024;
+    uint32_t len;
+    if (fifo == 0) len = hpcd->Instance->DIEPTXF0_HNPTXFSIZ>>16;
+    else
+        len =  hpcd->Instance->DIEPTXF[fifo - 1] >> 16;
+    return len*4;
 }
-
-void HAL_PCDEx_SetConnectionState(PCD_HandleTypeDef *hpcd, uint8_t state){
-    USBHAL_Private_t *priv=((USBHAL_Private_t *)(hpcd->pData));
-    gpio_write(&(priv->usb_switch),state);
-}
-
-void HAL_PCD_SOFCallback(PCD_HandleTypeDef *hpcd) {
+void HAL_PCD_SOFCallback(PCD_HandleTypeDef *hpcd) 
+{
     USBHAL_Private_t *priv=((USBHAL_Private_t *)(hpcd->pData));
     USBHAL *obj= priv->inst;
-    uint32_t sofnum = (hpcd->Instance->FNR) & USB_FNR_FN;
+    USB_OTG_GlobalTypeDef *USBx = hpcd->Instance;
+    uint32_t sofnum = (USBx_DEVICE->DSTS & USB_OTG_DSTS_FNSOF) >> 8;
     void (USBHAL::*func)(int frame) = priv->sof;
-    /* fix me  call with same frame number */
     (obj->*func)(sofnum);
 }
+
 
 USBHAL * USBHAL::instance;
 
 USBHAL::USBHAL(void) {
     /*  init parameter  */
     USBHAL_Private_t *HALPriv = new(USBHAL_Private_t);
-    hpcd.Instance = USB;
-    /*  initialized Init to zero (constructor does not zero initialized the
-     *  area */
-    /*  initialized all field of init including 0 field  */
-    /*  constructor does not fill with zero */
+    hpcd.Instance = USB_OTG_FS;
     memset(&hpcd.Init, 0, sizeof(hpcd.Init));
     hpcd.Init.dev_endpoints = NB_ENDPOINT;
     hpcd.Init.ep0_mps =   MAX_PACKET_SIZE_EP0;
     hpcd.Init.phy_itface = PCD_PHY_EMBEDDED;
     hpcd.Init.Sof_enable = 1;
+
     hpcd.Init.speed = PCD_SPEED_FULL;
+    //hpcd.Init.vbus_sensing_enable = 0;
+    //hpcd.Init.lpm_enable = 0;
     /*  pass instance for usage inside call back */
     HALPriv->inst = this;
     HALPriv->bus_reset = &USBHAL::busReset;
@@ -100,29 +99,34 @@ USBHAL::USBHAL(void) {
     HALPriv->epCallback[4] = &USBHAL::EP3_OUT_callback;
     HALPriv->epCallback[5] = &USBHAL::EP3_IN_callback;
     instance = this;
+    // Enable power and clocking
+    /*  board 144 pin all similar  */
     __HAL_RCC_GPIOA_CLK_ENABLE();
-    /* Configure USB DM pin. This is optional, and maintained only for user guidance. */
-    pin_function(PA_11, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF14_USB));
-    pin_function(PA_12, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF14_USB));
-    __HAL_RCC_GPIOG_CLK_ENABLE();
-    gpio_init_out(&HALPriv->usb_switch,PG_6);
-    /* Enable USB Clock */
-    __HAL_RCC_USB_CLK_ENABLE();
-    /* Enable SYSCFG Clock */
+    pin_function(PA_8, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS));
+    pin_function(PA_9, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, GPIO_AF10_OTG_FS));
+    pin_function(PA_10, STM_PIN_DATA(STM_MODE_AF_OD, GPIO_PULLUP, GPIO_AF10_OTG_FS));
+    pin_function(PA_11, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS));
+    pin_function(PA_12, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS));
+
+    __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
     __HAL_RCC_SYSCFG_CLK_ENABLE();
     hpcd.State = HAL_PCD_STATE_RESET;
     HAL_PCD_Init(&hpcd);
-    /* hardcoded size of FIFO according definition*/
-    HAL_PCDEx_PMAConfig(&hpcd , 0x00 , PCD_SNG_BUF, 0x30);
-    HAL_PCDEx_PMAConfig(&hpcd , 0x80 , PCD_SNG_BUF, 0x70);
-#if 1
-    HAL_PCDEx_PMAConfig(&hpcd , 0x3, PCD_DBL_BUF, 0x018000b0);
-#else
-    HAL_PCDEx_PMAConfig(&hpcd , 0x3, PCD_SNG_BUF, 0x180);
-#endif
-    HAL_PCDEx_PMAConfig(&hpcd , 0x83, PCD_SNG_BUF, 0xb0);
-    NVIC_SetVector(USBHAL_IRQn,(uint32_t)&_usbisr);
+    /* 1.25kbytes */
+    /* min value 16 (= 16 x 4 bytes) */
+    /*  max value 256 (= 1K bytes ) */
+    /*  maximum sum is 0x140 */
+    HAL_PCDEx_SetRxFiFo(&hpcd, (MAXTRANSFER_SIZE/4));
+    /*  bulk/int 64 bytes in FS  */
+    HAL_PCDEx_SetTxFiFo(&hpcd, 0, (MAX_PACKET_SIZE_EP0/4)+1);
+    /*  bulk/int bytes in FS */
+    HAL_PCDEx_SetTxFiFo(&hpcd, 1, (MAX_PACKET_SIZE_EP1/4)+1);
+    HAL_PCDEx_SetTxFiFo(&hpcd, 2, (MAX_PACKET_SIZE_EP2/4));
+    /* ISOchronous */
+    HAL_PCDEx_SetTxFiFo(&hpcd, 3, (MAX_PACKET_SIZE_EP3/4));
+    NVIC_SetVector(USBHAL_IRQn, (uint32_t)&_usbisr);
     NVIC_SetPriority(USBHAL_IRQn, 1);
     HAL_PCD_Start(&hpcd);
 }
 #endif
+

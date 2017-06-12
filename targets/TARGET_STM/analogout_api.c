@@ -1,6 +1,5 @@
 /* mbed Microcontroller Library
- *******************************************************************************
- * Copyright (c) 2015, STMicroelectronics
+ * Copyright (c) 2017, STMicroelectronics
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,54 +24,57 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *******************************************************************************
  */
-#ifndef MBED_OBJECTS_H
-#define MBED_OBJECTS_H
+#include "mbed_assert.h"
+#include "analogout_api.h"
+
+#if DEVICE_ANALOGOUT
 
 #include "cmsis.h"
-#include "PortNames.h"
-#include "PeripheralNames.h"
-#include "PinNames.h"
+#include "pinmap.h"
+#include "mbed_error.h"
+#include "PeripheralPins.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define DAC_RANGE (0xFFF) // 12 bits
+#define DAC_NB_BITS  (12)
 
-struct gpio_irq_s {
-    IRQn_Type irq_n;
-    uint32_t irq_index;
-    uint32_t event;
-    PinName pin;
-};
-
-struct port_s {
-    PortName port;
-    uint32_t mask;
-    PinDirection direction;
-    __IO uint32_t *reg_in;
-    __IO uint32_t *reg_out;
-};
-
-struct analogin_s {
-    ADCName adc;
-    PinName pin;
-    uint32_t channel;
-};
-
-struct can_s {
-    CANName can;
-    int index;
-};
-
-struct trng_s {
-    RNG_HandleTypeDef handle;
-};
-
-#include "common_objects.h"
-
-#ifdef __cplusplus
+static inline void dac_write(dac_t *obj, int value)
+{
+    HAL_DAC_SetValue(&obj->handle, obj->channel, DAC_ALIGN_12B_R, (value & DAC_RANGE));
+    HAL_DAC_Start(&obj->handle, obj->channel);
 }
-#endif
 
-#endif
+static inline int dac_read(dac_t *obj)
+{
+    return (int)HAL_DAC_GetValue(&obj->handle, obj->channel);
+}
+
+void analogout_write(dac_t *obj, float value)
+{
+    if (value < 0.0f) {
+        dac_write(obj, 0); // Min value
+    } else if (value > 1.0f) {
+        dac_write(obj, (int)DAC_RANGE); // Max value
+    } else {
+        dac_write(obj, (int)(value * (float)DAC_RANGE));
+    }
+}
+
+void analogout_write_u16(dac_t *obj, uint16_t value)
+{
+    dac_write(obj, value >> (16 - DAC_NB_BITS));
+}
+
+float analogout_read(dac_t *obj)
+{
+    uint32_t value = dac_read(obj);
+    return (float)value * (1.0f / (float)DAC_RANGE);
+}
+
+uint16_t analogout_read_u16(dac_t *obj)
+{
+    uint32_t value = dac_read(obj);
+    return (value << 4) | ((value >> 8) & 0x000F); // Conversion from 12 to 16 bits
+}
+
+#endif // DEVICE_ANALOGOUT

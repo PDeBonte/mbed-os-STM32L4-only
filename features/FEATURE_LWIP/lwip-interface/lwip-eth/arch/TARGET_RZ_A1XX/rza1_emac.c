@@ -5,10 +5,72 @@
 #include "mbed_interface.h"
 #include "ethernet_api.h"
 #include "ethernetext_api.h"
+#include "platform/mbed_toolchain.h"
 
 #define RECV_TASK_PRI           (osPriorityNormal)
 #define PHY_TASK_PRI            (osPriorityNormal)
 #define PHY_TASK_WAIT           (200)
+
+WEAK int ethernetext_init(ethernet_cfg_t *p_ethcfg)
+{
+    return -1;
+}
+
+WEAK void ethernetext_start_stop(int32_t mode)
+{
+}
+
+WEAK int ethernetext_chk_link_mode(void)
+{
+    return NEGO_FAIL;
+}
+
+WEAK void ethernetext_set_link_mode(int32_t link)
+{
+}
+
+WEAK int ethernet_init(void)
+{
+    return -1;
+}
+
+WEAK void ethernet_free(void)
+{
+}
+
+WEAK int ethernet_write(const char *data, int size)
+{
+    return 0;
+}
+
+WEAK int ethernet_send(void)
+{
+    return 0;
+}
+
+WEAK int ethernet_receive(void)
+{
+    return 0;
+}
+
+WEAK int ethernet_read(char *data, int size)
+{
+    return 0;
+}
+
+WEAK void ethernet_address(char *mac)
+{
+}
+
+WEAK int ethernet_link(void)
+{
+    return 0;
+}
+
+WEAK void ethernet_set_link(int speed, int duplex)
+{
+}
+
 
 /* memory */
 static sys_sem_t recv_ready_sem;    /* receive ready semaphore */
@@ -195,8 +257,8 @@ err_t eth_arch_enetif_init(struct netif *netif)
     sys_sem_new(&recv_ready_sem, 0);
 
     /* task */
-    sys_thread_new("rza1_emac_rx_thread", rza1_recv_task, netif, DEFAULT_THREAD_STACKSIZE, RECV_TASK_PRI);
-    sys_thread_new("rza1_emac_phy_thread", rza1_phy_task, netif, DEFAULT_THREAD_STACKSIZE, PHY_TASK_PRI);
+    sys_thread_new("rza1_recv_task", rza1_recv_task, netif, DEFAULT_THREAD_STACKSIZE, RECV_TASK_PRI);
+    sys_thread_new("rza1_phy_task", rza1_phy_task, netif, DEFAULT_THREAD_STACKSIZE, PHY_TASK_PRI);
 
     return ERR_OK;
 }

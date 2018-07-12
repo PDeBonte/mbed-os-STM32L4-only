@@ -1,5 +1,5 @@
 /* mbed Microcontroller Library
- * Copyright (c) 2006-2013 ARM Limited
+ * Copyright (c) 2006-2018 ARM Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,37 @@
  * limitations under the License.
  */
 #include "hal/us_ticker_api.h"
-#include "hal_tick.h"
-
-// Overwrite default HAL functions defined as "weak"
+#include "us_ticker_data.h"
 
 // This variable is set to 1 at the of mbed_sdk_init function.
 // The ticker_read_us function must not be called until the mbed_sdk_init is terminated.
 extern int mbed_sdk_inited;
 
-#if TIM_MST_16BIT
-// Variables also reset in HAL_InitTick()
+// Defined in us_ticker.c
+void init_16bit_timer(void);
+void init_32bit_timer(void);
+
+#if TIM_MST_BIT_WIDTH == 16
+// Variables also reset in us_ticker_init()
 uint32_t prev_time = 0;
 uint32_t elapsed_time = 0;
 #endif
 
-// 1 ms tick is required for ST HAL driver
+// Overwrite default HAL functions defined as "weak"
+
+HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
+{
+#if TIM_MST_BIT_WIDTH == 16
+    init_16bit_timer();
+#else
+    init_32bit_timer();
+#endif
+    return HAL_OK;
+}
+
 uint32_t HAL_GetTick()
 {
-#if TIM_MST_16BIT
+#if TIM_MST_BIT_WIDTH == 16
     uint32_t new_time;
     if (mbed_sdk_inited) {
         // Apply the latest time recorded just before the sdk is inited

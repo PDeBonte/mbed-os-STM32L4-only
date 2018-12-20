@@ -25,11 +25,6 @@ namespace mbed {
 class UBLOX_PPP : public AT_CellularDevice {
 public:
     UBLOX_PPP(FileHandle *fh);
-    virtual ~UBLOX_PPP();
-
-protected: // AT_CellularDevice
-    virtual nsapi_error_t power_on();
-    virtual nsapi_error_t power_off();
 };
 
 } // namespace mbed

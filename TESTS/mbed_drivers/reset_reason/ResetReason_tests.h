@@ -1,5 +1,5 @@
 /*
- * Copyright (c) , Arm Limited and affiliates.
+ * Copyright (c) 2018-2019 Arm Limited and affiliates.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-/** Resets the processor and most of the sub-system
- *
- * @note Does not affect the debug sub-system
- */
-#ifndef MBED_POWER_MGMT_H
-#define MBED_POWER_MGMT_H
-extern void mock_system_reset();
+#ifndef MBED_DRIVERS_RESET_REASON_TESTS_H
+#define MBED_DRIVERS_RESET_REASON_TESTS_H
 
-MBED_NORETURN static inline void system_reset(void)
-{
-    mock_system_reset();
-}
+#if DEVICE_RESET_REASON
+
+/** Test the ResetReason driver API
+ *
+ * Given a device supporting a ResetReason API,
+ * when the device is restarted,
+ * then the device returns a correct reset reason for every restart.
+ */
+void test_reset_reason();
 
 #endif
 
+#endif

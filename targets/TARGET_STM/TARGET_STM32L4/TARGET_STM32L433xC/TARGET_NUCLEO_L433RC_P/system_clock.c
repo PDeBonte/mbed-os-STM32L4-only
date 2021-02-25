@@ -307,11 +307,18 @@ uint8_t SetSysClock_PLL_MSI(void)
     RCC_OscInitStruct.MSIClockRange       = RCC_MSIRANGE_11; /* 48 MHz */
     RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_MSI;
+    /* 80 MHz */
+    //RCC_OscInitStruct.PLL.PLLM            = 6;    /* 8 MHz */
+    //RCC_OscInitStruct.PLL.PLLN            = 40;   /* 320 MHz */
+    //RCC_OscInitStruct.PLL.PLLP            = 7;    /* 45 MHz */
+    //RCC_OscInitStruct.PLL.PLLQ            = 4;    /* 80 MHz */
+    //RCC_OscInitStruct.PLL.PLLR            = 4;    /* 80 MHz */
+    /* 48 MHz */
     RCC_OscInitStruct.PLL.PLLM            = 6;    /* 8 MHz */
-    RCC_OscInitStruct.PLL.PLLN            = 40;   /* 320 MHz */
-    RCC_OscInitStruct.PLL.PLLP            = 7;    /* 45 MHz */
-    RCC_OscInitStruct.PLL.PLLQ            = 4;    /* 80 MHz */
-    RCC_OscInitStruct.PLL.PLLR            = 4;    /* 80 MHz */
+    RCC_OscInitStruct.PLL.PLLN            = 24;   /* 192 MHz */
+    RCC_OscInitStruct.PLL.PLLP            = 4;    /* 48 MHz */
+    RCC_OscInitStruct.PLL.PLLQ            = 2;    /* 96 MHz */
+    RCC_OscInitStruct.PLL.PLLR            = 4;    /* 48 MHz */
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
         return 0; // FAIL
     }
